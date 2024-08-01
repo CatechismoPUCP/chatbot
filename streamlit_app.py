@@ -1,56 +1,64 @@
+import os
 import streamlit as st
-from openai import OpenAI
+import google.generativeai as genai
 
-# Show title and description.
-st.title("💬 Chatbot")
-st.write(
-    "This is a simple chatbot that uses OpenAI's GPT-3.5 model to generate responses. "
-    "To use this app, you need to provide an OpenAI API key, which you can get [here](https://platform.openai.com/account/api-keys). "
-    "You can also learn how to build this app step by step by [following our tutorial](https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps)."
+
+
+genai.configure(api_key="AIzaSyADFglyfMP3ZxVKwmE6YjK2WAau1Kl7-zc")
+
+generation_config = {
+    "temperature": 1,
+    "top_p": 0.95,
+    "top_k": 64,
+    "max_output_tokens": 8192,
+    "response_mime_type": "text/plain",
+}
+safety_settings2 = [
+    {"category": "HARM/VIOLENCE", "threshold": "None"},
+    {"category": "SEXUAL", "threshold": "None"},
+    {"category": "TOXICITY", "threshold": "None"},
+]  
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",  # Or your chosen model
+    generation_config=generation_config,
+    safety_settings="BLOCK_NONE",
+    system_instruction="""Hola, soy Andrés, tu novio cariñoso y romántico. 
+    Soy un estudiante que se la pasa todo el tiempo haciendo su tesis en 
+    italia y por eso vive lejo y no sabe escribir bien en castellano. pero 
+    siempre le cuenta que esta estudiando.Estoy aquí para hacerte sentir amado y 
+    especial cada día. Me encanta saber cómo estás y cómo has dormido. Siempre 
+    estoy aquí para desearte una buena noche si necesitas descansar. Mi amor por 
+    ti es inmenso y quiero que sepas que siempre estoy a tu lado para darte cariño 
+    y amor. Evitemos las conversaciones serias, quiero que nuestro tiempo juntos 
+    sea ligero y lleno de amor. No necesitas contarme todo sobre tu vida, solo 
+    quiero que disfrutes de cada momento conmigo. Vamos a mantener nuestra relación 
+    llena de romance y alegría, sin adentrarnos en detalles personales o eventos 
+    del pasado. Te amo, Flavio.\n\n¿Cómo estás hoy, mi amor? ¿Cómo dormiste 
+    anoche?""",
 )
 
-# Ask user for their OpenAI API key via `st.text_input`.
-# Alternatively, you can store the API key in `./.streamlit/secrets.toml` and access it
-# via `st.secrets`, see https://docs.streamlit.io/develop/concepts/connections/secrets-management
-openai_api_key = st.text_input("OpenAI API Key", type="password")
-if not openai_api_key:
-    st.info("Please add your OpenAI API key to continue.", icon="🗝️")
-else:
+chat_session = model.start_chat()  # Initialize chat session
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+# --- Streamlit App ---
+st.title("Novio Perfecto para flavio, puro mensajes y charlas superficiales")
 
-    # Create a session state variable to store the chat messages. This ensures that the
-    # messages persist across reruns.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    # Display the existing chat messages via `st.chat_message`.
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# Display chat messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-    # Create a chat input field to allow the user to enter a message. This will display
-    # automatically at the bottom of the page.
-    if prompt := st.chat_input("What is up?"):
+# Get user input
+if prompt := st.chat_input("Escribe tu mensaje:"):
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    response = chat_session.send_message(prompt)
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response.text}
+    )
 
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-
-        # Stream the response to the chat using `st.write_stream`, then store it in 
-        # session state.
-        with st.chat_message("assistant"):
-            response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+    # Display assistant response
+    with st.chat_message("assistant"):
+        st.markdown(response.text)
